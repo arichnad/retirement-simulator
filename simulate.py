@@ -52,6 +52,7 @@ def run(goalYears, percentTakeOut, doInvest, doInflation):
 		date=startDate
 		startCpi=cpi[date]
 		shares=1/djia[date] if doInvest else 1
+		good = False
 		while date < endDate:
 			moneyToTakeOut = startMoneyToTakeOut * (cpi[date] / startCpi if doInflation else 1)
 			
@@ -61,15 +62,16 @@ def run(goalYears, percentTakeOut, doInvest, doInflation):
 			#print(moneyToTakeOut, sharesToTakeOut, shares)
 			if shares < 0: break
 			date+=relativedelta(months=1)
+			years = (date - startDate).days / 365
+			if years >= goalYears:
+				goodCount += 1
+				good = True
+				break
 		
-		years = (date - startDate).days / 365
-		good = years >= goalYears
-		if good:
-			goodCount += 1
-		elif date == endDate:
+		if not good and date == endDate:
 			break
 		totalCount += 1
-		print(startDate, round(years), 'good' if good else 'bad')
+		print(startDate, 'good' if good else 'bad')
 		
 		startDate+=relativedelta(months=1)
 	print('suceeded at keeping retirement money %.0f years %.0f%% of the simulations' % (goalYears, goodCount / totalCount * 100))
