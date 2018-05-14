@@ -11,7 +11,7 @@ example
 
 python3 simulate.py 33 4
 
-* All money is placed in an investment that follows the [Dow Jones Industrial Average](https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average).
+* All money is placed in an investment that follows the [S&P 500 index](https://en.wikipedia.org/wiki/S%26P_500_Index).
 
 * This above example states you want retirement money to last 33 years or longer
 
@@ -22,7 +22,5 @@ python3 simulate.py 33 4
 data
 ====
 
-* [uses CPI data from here](https://www.quandl.com/api/v3/datasets/FRED/CPIAUCSL.csv)
-
-* [Uses DJIA data from here](https://www.quandl.com/api/v3/datasets/BCB/UDJIAD1.csv)
+* [uses S&P 500 and CPI data from here](http://www.econ.yale.edu/~shiller/data.htm)
 
