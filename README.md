@@ -24,3 +24,5 @@ data
 
 * [uses S&P 500 and CPI data from here](http://www.econ.yale.edu/~shiller/data.htm)
 
+`(echo 'date,s&p500,dividend,earnings,cpi'; cat shiller-raw.tsv |egrep '^[0-9]*\.01' |cut -f1-5 |sed -e 's/\.01//' -e 's/\t/,/g') >shiller.csv`
+

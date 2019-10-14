@@ -66,12 +66,12 @@ def run(goalYears, percentTakeOut, doInvest, doInflation):
 	startMoneyToTakeOut = percentTakeOut/100
 
 	data={}
-	#year,s&p500,dividends,earnings,interest rate,long government bond,cpi
-	for date,sp500,dividends,earnings,interest,governmentBond,cpi in csv.reader(open('shiller.csv', 'r')):
+	#date,s&p500,dividend,earnings,cpi
+	for date,sp500,dividends,earnings,cpi in csv.reader(open('shiller.csv', 'r')):
 		if date.lower() == 'date': continue
 		date=datetime.strptime(date,'%Y')
 		data[date]={'sp500': parse(sp500), 'dividends': parse(dividends), 'earnings': parse(earnings), \
-				'interest': parse(interest), 'governmentBond': parse(governmentBond), 'cpi': parse(cpi)}
+				'cpi': parse(cpi)}
 	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
