@@ -67,7 +67,7 @@ def run(goalYears, percentTakeOut):
 
 	data = {}
 	#date,s&p500,dividend,earnings,cpi
-	for date,sp500,dividends,earnings,cpi in csv.reader(open('shiller.csv', 'r')):
+	for date,sp500,dividends,earnings,cpi,bondInterest in csv.reader(open('shiller.csv', 'r')):
 		if date.lower() == 'date': continue
 		date=datetime.strptime(date,'%Y')
 		data[date] = {
@@ -75,6 +75,7 @@ def run(goalYears, percentTakeOut):
 			'dividends': parse(dividends),
 			'earnings': parse(earnings),
 			'cpi': parse(cpi),
+			'bondInterest': parse(bondInterest)/100,
 		}
 	
 	startDate=datetime(1871,1,1)
