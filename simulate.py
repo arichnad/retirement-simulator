@@ -10,75 +10,86 @@ def main(argv):
 	except getopt.GetoptError:
 		usage()
 		return
-	doInvest=True
-	doInflation=True
 	for opt, arg in opts:
 		if opt in ('-h', '--help'):
 			usage()
 			return
-		if opt in ('--no-invest'):
-			doInvest=False
-		if opt in ('--no-inflation'):
-			doInflation=False
 	if len(args) < 2:
 		usage()
 		return
-	run(float(args[0]), float(args[1]), doInvest, doInflation)
+	run(float(args[0]), float(args[1]))
 
 def usage():
-	print('usage:  python3 simulate.py [--no-invest] [--no-inflation] goalYears percentTakeOut')
+	print('usage:  python3 simulate.py goalYears percentTakeOut')
 
 def parse(data):
 	return float(data) if data != '' else None
 
-def oneSimulation(data, startDate, endDate, goalYears, startMoneyToTakeOut, doInvest, doInflation):
-	date=startDate
-	startCpi=data[date]['cpi']
-	#the only reason to track "shares" istead of "money" is you don't have to look at previous rows
-	shares=1/data[date]['sp500'] if doInvest else 1
-	good = False
-	while date < endDate:
-		moneyToTakeOut = startMoneyToTakeOut * (data[date]['cpi'] / startCpi if doInflation else 1)
-		
-		sharesToTakeOut = moneyToTakeOut / ( data[date]['sp500'] if doInvest else 1 )
+def oneTimeUnit(data, bank):
+	date = bank['date']
 
-		shares -= sharesToTakeOut
-		
-		shares += data[date]['dividends'] / data[date]['sp500'] * shares if doInvest else 0
-		
-		#print(moneyToTakeOut, sharesToTakeOut, shares)
-		if shares < 0: break
-		date+=relativedelta(years=1)
-		years = (date - startDate).days / 365
-		if years >= goalYears:
-			good = True
-			break
+	moneyToTakeOut = bank['startMoneyToTakeOut'] * data[date]['cpi'] / bank['startCpi']
 	
-	if not good and date == endDate:
+	sharesToTakeOut = moneyToTakeOut / data[date]['sp500']
+
+	bank['shares'] -= sharesToTakeOut
+	
+	bank['shares'] += data[date]['dividends'] / data[date]['sp500'] * bank['shares']
+	
+	#print(moneyToTakeOut, sharesToTakeOut, bank['shares'])
+	if bank['shares'] < 0:
+		return False
+
+	bank['date']+=relativedelta(years=1)
+
+	return True
+
+	
+
+def oneSimulation(data, bank, startDate, endDate, goalYears):
+	good = True
+	years = 0
+	while good and bank['date'] < endDate and years < goalYears:
+		good = oneTimeUnit(data, bank)
+
+		years = (bank['date'] - startDate).days / 365
+	
+	if bank['date'] == endDate and years < goalYears:
 		return None
 	
 	print(startDate, 'good' if good else 'bad')
 	return good
 	
 
-def run(goalYears, percentTakeOut, doInvest, doInflation):
+def run(goalYears, percentTakeOut):
 	#convert to yearly amount:
 	startMoneyToTakeOut = percentTakeOut/100
 
-	data={}
+	data = {}
 	#date,s&p500,dividend,earnings,cpi
 	for date,sp500,dividends,earnings,cpi in csv.reader(open('shiller.csv', 'r')):
 		if date.lower() == 'date': continue
 		date=datetime.strptime(date,'%Y')
-		data[date]={'sp500': parse(sp500), 'dividends': parse(dividends), 'earnings': parse(earnings), \
-				'cpi': parse(cpi)}
+		data[date] = {
+			'sp500': parse(sp500),
+			'dividends': parse(dividends),
+			'earnings': parse(earnings),
+			'cpi': parse(cpi),
+		}
 	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
 	goodCount = 0
 	totalCount = 0
 	while startDate < endDate:
-		good = oneSimulation(data, startDate, endDate, goalYears, startMoneyToTakeOut, doInvest, doInflation)
+		#the only reason to track "shares" istead of "money" is you don't have to look at previous rows
+		bank = {
+			'date': startDate,
+			'shares': 1/data[startDate]['sp500'],
+			'startCpi': data[startDate]['cpi'],
+			'startMoneyToTakeOut': startMoneyToTakeOut,
+		}
+		good = oneSimulation(data, bank, startDate, endDate, goalYears)
 
 		if good is None: break
 

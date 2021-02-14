@@ -4,7 +4,7 @@ a simulator for retirement.
 usage
 =====
 
-python3 simulate.py [--no-invest] [--no-inflation] goalYears percentTakeOut
+python3 simulate.py goalYears percentTakeOut
 
 example
 =======
@@ -23,6 +23,8 @@ data
 ====
 
 * [uses S&P 500 and CPI data from here](http://www.econ.yale.edu/~shiller/data.htm)
+
+** [specifically this spreadsheet](http://www.econ.yale.edu/~shiller/data/ie_data.xls)
 
 `(echo 'date,s&p500,dividend,earnings,cpi'; cat shiller-raw.tsv |egrep '^[0-9]*\.01' |cut -f1-5 |sed -e 's/\.01//' -e 's/\t/,/g') >shiller.csv`
 
