@@ -55,10 +55,10 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 		years = (bank['date'] - startDate).days / 365
 	
 	if bank['date'] == endDate and years < goalYears:
-		return None
+		return None, bank['shares']
 	
 	print(startDate, 'good' if good else 'bad')
-	return good
+	return good, bank['shares']
 	
 
 def run(goalYears, percentTakeOut):
@@ -82,6 +82,8 @@ def run(goalYears, percentTakeOut):
 	endDate=datetime(2016,1,1)
 	goodCount = 0
 	totalCount = 0
+	totalBalance = 0
+	
 	while startDate < endDate:
 		#the only reason to track "shares" istead of "money" is you don't have to look at previous rows
 		bank = {
@@ -90,17 +92,21 @@ def run(goalYears, percentTakeOut):
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 		}
-		good = oneSimulation(data, bank, startDate, endDate, goalYears)
+		good, balance = oneSimulation(data, bank, startDate, endDate, goalYears)
 
 		if good is None: break
-
+		
 		if good:
 			goodCount += 1
-		
 		totalCount += 1
+		totalBalance += balance
 		
 		startDate+=relativedelta(years=1)
-	print('suceeded at keeping retirement money %.0f years %.0f%% of the simulations' % (goalYears, goodCount / totalCount * 100))
+	
+	print('suceeded at keeping retirement money %.0f years %.0f%% of the simulations (average %.2f)' % (
+		goalYears,
+		goodCount / totalCount * 100,
+		totalBalance / totalCount))
 
 
 if __name__ == "__main__":
