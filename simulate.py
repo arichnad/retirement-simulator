@@ -4,6 +4,8 @@ import csv, sys, getopt
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
+epsilon = 1e-6
+
 def main(argv):
 	try:
 		opts, args = getopt.getopt(argv,'h', ['help', 'no-invest', 'no-inflation'])
@@ -17,7 +19,7 @@ def main(argv):
 	if len(args) < 2:
 		usage()
 		return
-	run(float(args[0]), float(args[1]))
+	run(float(args[0]), float(args[1])/100)
 
 def usage():
 	print('usage:  python3 simulate.py goalYears percentTakeOut')
@@ -26,12 +28,33 @@ def parse(data):
 	return float(data) if data != '' else None
 
 def withdrawalStrategy(data, bank, moneyToTakeOut):
-	bank['equities'] -= moneyToTakeOut
+	equityRatio = bank['equityRatio']
+	
+	equitiesToTakeOut = bank['equities'] - equityRatio * (getBalance(bank) - moneyToTakeOut)
+	
+	if equitiesToTakeOut < 0:
+		#print('uneven balances (low equities):  trouble rebalancing')
+		equitiesToTakeOut = 0
+	
+	if equitiesToTakeOut > moneyToTakeOut + epsilon:
+		#print('uneven balances (high equities):  trouble rebalancing')
+		equitiesToTakeOut = moneyToTakeOut
+		
+	if equitiesToTakeOut > bank['equities']:
+		#print('low balances:  trouble rebalancing')
+		equitiesToTakeOut = bank['equities']
+
+	bondsToTakeOut = moneyToTakeOut - equitiesToTakeOut
+	#print(equitiesToTakeOut, bondsToTakeOut, '', bank['equities'], bank['bonds'])
+	
+	bank['equities'] -= equitiesToTakeOut
+	bank['bonds'] -= bondsToTakeOut
 
 def updateBalances(data, bank):
 	date = bank['date']
 	
 	bank['equities'] += data[date]['dividends'] / data[date]['sp500'] * bank['equities']
+	bank['bonds'] *= data[date]['bondInterest'] + 1
 	
 	nextDate = date + relativedelta(years=1)
 	
@@ -49,13 +72,13 @@ def oneTimeUnit(data, bank):
 
 	updateBalances(data, bank)
 	
-	if bank['equities'] < 0:
+	if bank['equities'] < -epsilon or bank['bonds'] < -epsilon:
 		return False
 
 	return True
 
 def getBalance(bank):
-	return bank['equities']
+	return bank['equities'] + bank['bonds']
 
 
 def oneSimulation(data, bank, startDate, endDate, goalYears):
@@ -75,7 +98,7 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 
 def run(goalYears, percentTakeOut):
 	#convert to yearly amount:
-	startMoneyToTakeOut = percentTakeOut/100
+	startMoneyToTakeOut = percentTakeOut
 
 	data = {}
 	#date,s&p500,dividend,earnings,cpi
@@ -93,6 +116,7 @@ def run(goalYears, percentTakeOut):
 	startMoney = 1
 	equityRatio = 1
 	startEquities = startMoney * equityRatio
+	startBonds = startMoney * (1 - equityRatio)
 	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
@@ -104,6 +128,7 @@ def run(goalYears, percentTakeOut):
 		bank = {
 			'date': startDate,
 			'equities': startEquities,
+			'bonds': startBonds,
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
