@@ -25,26 +25,38 @@ def usage():
 def parse(data):
 	return float(data) if data != '' else None
 
+def withdrawalStrategy(data, bank, moneyToTakeOut):
+	bank['equities'] -= moneyToTakeOut
+
+def updateBalances(data, bank):
+	date = bank['date']
+	
+	bank['equities'] += data[date]['dividends'] / data[date]['sp500'] * bank['equities']
+	
+	nextDate = date + relativedelta(years=1)
+	
+	bank['equities'] *= data[nextDate]['sp500'] / data[date]['sp500']
+	
+	bank['date'] = nextDate
+
+
 def oneTimeUnit(data, bank):
 	date = bank['date']
 
 	moneyToTakeOut = bank['startMoneyToTakeOut'] * data[date]['cpi'] / bank['startCpi']
 	
-	sharesToTakeOut = moneyToTakeOut / data[date]['sp500']
+	withdrawalStrategy(data, bank, moneyToTakeOut)
 
-	bank['shares'] -= sharesToTakeOut
+	updateBalances(data, bank)
 	
-	bank['shares'] += data[date]['dividends'] / data[date]['sp500'] * bank['shares']
-	
-	#print(moneyToTakeOut, sharesToTakeOut, bank['shares'])
-	if bank['shares'] < 0:
+	if bank['equities'] < 0:
 		return False
-
-	bank['date']+=relativedelta(years=1)
 
 	return True
 
-	
+def getBalance(bank):
+	return bank['equities']
+
 
 def oneSimulation(data, bank, startDate, endDate, goalYears):
 	good = True
@@ -55,10 +67,10 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 		years = (bank['date'] - startDate).days / 365
 	
 	if bank['date'] == endDate and years < goalYears:
-		return None, bank['shares']
+		return None, getBalance(bank)
 	
 	print(startDate, 'good' if good else 'bad')
-	return good, bank['shares']
+	return good, getBalance(bank)
 	
 
 def run(goalYears, percentTakeOut):
@@ -78,6 +90,10 @@ def run(goalYears, percentTakeOut):
 			'bondInterest': parse(bondInterest)/100,
 		}
 	
+	startMoney = 1
+	equityRatio = 1
+	startEquities = startMoney * equityRatio
+	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
 	goodCount = 0
@@ -85,12 +101,12 @@ def run(goalYears, percentTakeOut):
 	totalBalance = 0
 	
 	while startDate < endDate:
-		#the only reason to track "shares" istead of "money" is you don't have to look at previous rows
 		bank = {
 			'date': startDate,
-			'shares': 1/data[startDate]['sp500'],
+			'equities': startEquities,
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
+			'equityRatio': equityRatio,
 		}
 		good, balance = oneSimulation(data, bank, startDate, endDate, goalYears)
 
