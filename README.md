@@ -17,6 +17,8 @@ python3 simulate.py --equity-ratio=.75 33 4
 
 * Rebalancing happens yearly.
 
+* Uses a hard-coded expense ratio of 0.1%/year.
+
 * This above example states you want retirement money to last 33 years or longera.
 
 * The example also states you want to want to take out 4 % of your starting balance [adjusted for inflation](https://en.wikipedia.org/wiki/Consumer_price_index).

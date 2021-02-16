@@ -75,11 +75,18 @@ def updatePortfolio(data, bank, portfolio):
 	bondDividends = bonds * data[date]['bondInterest']
 	portfolio['costBasis'] += bondDividends
 
-	newBalance = sum((balance, equityReturn, equityDividends, bondDividends))
+	#i'm not sure why we don't include the full ending balance here, but whatever
+	netExpense = - sum((balance, equityReturn, bondDividends)) * bank['expenseRatio']
+	portfolio['costBasis'] += -netExpense
+
+	newBalance = sum((balance, equityReturn, equityDividends, bondDividends, netExpense))
 	
 	global debug
 	if debug:
-		print(balance, equities, bonds, equityReturn, equityDividends, bondDividends, newBalance, portfolio['costBasis'])
+		print('%.3f %.3f %.3f / %.4f %.4f %.4f %.4f / %.3f %.3f' % (
+			balance, equities, bonds,
+			equityReturn, equityDividends, bondDividends, netExpense,
+			newBalance, portfolio['costBasis']))
 	
 	portfolio['balance'] = newBalance
 
@@ -161,6 +168,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
+			'expenseRatio': timeRatio * .001,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 		}
 
