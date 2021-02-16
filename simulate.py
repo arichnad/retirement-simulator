@@ -8,7 +8,7 @@ epsilon = 1e-6
 
 def main(argv):
 	monthly = False
-	equityRatio = None
+	equityRatio = 1
 
 	try:
 		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio='])
@@ -35,57 +35,46 @@ def parse(data):
 	return float(data) if data != '' else None
 
 def withdrawalStrategy(data, bank, moneyToTakeOut):
-	equityRatio = bank['equityRatio']
-	
-	equitiesToTakeOut = bank['equities'] - equityRatio * (getBalance(bank) - moneyToTakeOut)
-	
-	if equitiesToTakeOut < 0:
-		#print('uneven balances (low equities):  trouble rebalancing')
-		equitiesToTakeOut = 0
-	
-	if equitiesToTakeOut > moneyToTakeOut + epsilon:
-		#print('uneven balances (high equities):  trouble rebalancing')
-		equitiesToTakeOut = moneyToTakeOut
-		
-	if equitiesToTakeOut > bank['equities']:
-		#print('low balances:  trouble rebalancing')
-		equitiesToTakeOut = bank['equities']
+	bank['portfolio'] -= moneyToTakeOut
 
-	bondsToTakeOut = moneyToTakeOut - equitiesToTakeOut
-	#print(equitiesToTakeOut, bondsToTakeOut, '', bank['equities'], bank['bonds'])
-	
-	bank['equities'] -= equitiesToTakeOut
-	bank['bonds'] -= bondsToTakeOut
+def calculateBondReturn(bondInterest, nextBondInterest):
+	#this is what other websites use:
+	return bondInterest
+
+	#not sure if this is right or not:
+	#return sum((
+	#	bondInterest/nextBondInterest,
+	#	bondInterest,
+	#	(1+nextBondInterest)**-119*(1-bondInterest/nextBondInterest)
+	#))
 
 def updateBalances(data, bank):
 	date = bank['date']
+	nextDate = bank['nextDate']
 	
-	bank['equities'] += data[date]['dividends'] / data[date]['sp500'] * bank['equities']
-	bank['bonds'] *= data[date]['bondInterest'] + 1
+	equities = bank['equityRatio'] * bank['portfolio']
+	bonds = bank['portfolio'] - equities
 	
-	nextDate = date + bank['timeIncrement']
+	equities = equities * sum((data[nextDate]['sp500'], data[date]['dividends'])) / data[date]['sp500']
 	
-	bank['equities'] *= data[nextDate]['sp500'] / data[date]['sp500']
-	
-	bank['date'] = nextDate
+	bonds += bonds * calculateBondReturn(data[date]['bondInterest'], data[nextDate]['bondInterest'])
+
+	bank['portfolio'] = equities + bonds
 
 
 def oneTimeUnit(data, bank):
 	date = bank['date']
-
-	moneyToTakeOut = bank['startMoneyToTakeOut'] * data[date]['cpi'] / bank['startCpi']
+	nextDate = bank['nextDate'] = date + bank['timeIncrement']
+	
+	moneyToTakeOut = bank['startMoneyToTakeOut'] * data[nextDate]['cpi'] / bank['startCpi']
 	
 	withdrawalStrategy(data, bank, moneyToTakeOut)
 
 	updateBalances(data, bank)
 	
-	if bank['equities'] < -epsilon or bank['bonds'] < -epsilon:
-		return False
-
-	return True
-
-def getBalance(bank):
-	return bank['equities'] + bank['bonds']
+	bank['date'] = nextDate
+	
+	return bank['portfolio'] >= -epsilon
 
 
 def oneSimulation(data, bank, startDate, endDate, goalYears):
@@ -97,15 +86,14 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 		years = (bank['date'] - startDate).days / 365
 	
 	if bank['date'] == endDate and years < goalYears:
-		return None, getBalance(bank)
+		return None, bank['portfolio']
 	
 	print(startDate, 'good' if good else 'bad')
-	return good, getBalance(bank)
+	return good, bank['portfolio']
 	
 
 def run(goalYears, percentTakeOut, monthly, equityRatio):
 	#convert to yearly amount:
-	startMoneyToTakeOut = percentTakeOut
 	timeRatio = 1/12 if monthly else 1
 
 	data = {}
@@ -121,10 +109,8 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 			'bondInterest': timeRatio * parse(bondInterest)/100,
 		}
 	
-	startMoney = 1
-	equityRatio = equityRatio if equityRatio is not None else 1
-	startEquities = startMoney * equityRatio
-	startBonds = startMoney * (1 - equityRatio)
+	startMoneyToTakeOut = timeRatio * percentTakeOut
+	portfolio = 1
 	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
@@ -135,10 +121,9 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 	while startDate < endDate:
 		bank = {
 			'date': startDate,
-			'equities': startEquities,
-			'bonds': startBonds,
+			'portfolio': portfolio,
 			'startCpi': data[startDate]['cpi'],
-			'startMoneyToTakeOut': timeRatio * startMoneyToTakeOut,
+			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 		}
