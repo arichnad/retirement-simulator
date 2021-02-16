@@ -35,7 +35,7 @@ def parse(data):
 	return float(data) if data != '' else None
 
 def withdrawalStrategy(data, bank, moneyToTakeOut):
-	bank['portfolio'] -= moneyToTakeOut
+	bank['portfolio']['taxable'] -= moneyToTakeOut
 
 def calculateBondReturn(bondInterest, nextBondInterest):
 	#this is what other websites use:
@@ -47,20 +47,29 @@ def calculateBondReturn(bondInterest, nextBondInterest):
 	#	bondInterest,
 	#	(1+nextBondInterest)**-119*(1-bondInterest/nextBondInterest)
 	#))
-
-def updateBalances(data, bank):
+	
+def updatePortfolio(data, bank, portfolioName):
+	portfolio = bank['portfolio'][portfolioName]
+	
 	date = bank['date']
 	nextDate = bank['nextDate']
 	
-	equities = bank['equityRatio'] * bank['portfolio']
-	bonds = bank['portfolio'] - equities
+	equities = bank['equityRatio'] * portfolio
+	bonds = portfolio - equities
 	
 	equities = equities * sum((data[nextDate]['sp500'], data[date]['dividends'])) / data[date]['sp500']
 	
 	bonds += bonds * calculateBondReturn(data[date]['bondInterest'], data[nextDate]['bondInterest'])
 
-	bank['portfolio'] = equities + bonds
+	bank['portfolio'][portfolioName] = equities + bonds
 
+def updateBalances(data, bank):
+	for portfolioName in bank['portfolio'].keys():
+		updatePortfolio(data, bank, portfolioName)
+
+
+def getBalance(bank):
+	return sum(bank['portfolio'].values())
 
 def oneTimeUnit(data, bank):
 	date = bank['date']
@@ -74,7 +83,7 @@ def oneTimeUnit(data, bank):
 	
 	bank['date'] = nextDate
 	
-	return bank['portfolio'] >= -epsilon
+	return getBalance(bank) >= -epsilon
 
 
 def oneSimulation(data, bank, startDate, endDate, goalYears):
@@ -86,10 +95,10 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 		years = (bank['date'] - startDate).days / 365
 	
 	if bank['date'] == endDate and years < goalYears:
-		return None, bank['portfolio']
+		return None, getBalance(bank)
 	
 	print(startDate, 'good' if good else 'bad')
-	return good, bank['portfolio']
+	return good, getBalance(bank)
 	
 
 def run(goalYears, percentTakeOut, monthly, equityRatio):
@@ -110,7 +119,9 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 		}
 	
 	startMoneyToTakeOut = timeRatio * percentTakeOut
-	portfolio = 1
+	portfolio = {
+		'taxable': 1,
+	}
 	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
@@ -121,7 +132,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 	while startDate < endDate:
 		bank = {
 			'date': startDate,
-			'portfolio': portfolio,
+			'portfolio': portfolio.copy(),
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
