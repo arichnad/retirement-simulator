@@ -13,7 +13,7 @@ def main(argv):
 	tent = None
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio=', 'debug', 'tent='])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'debug', 'tent='])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -23,21 +23,21 @@ def main(argv):
 			return
 		elif opt in ('--monthly'):
 			monthly=True
-		elif opt in ('--equity-ratio'):
-			equityRatio=float(arg)
+		elif opt in ('--equity-percent'):
+			equityRatio=float(arg)/100
 		elif opt in ('--debug'):
 			global debug
 			debug=True
 		elif opt in ('--tent'):
 			tent=arg.split(',')
-			tent={'equityRatioChange': float(tent[0]), 'years': float(tent[1])}
+			tent={'equityRatioChange': float(tent[0])/100, 'years': float(tent[1])}
 	if len(args) < 2:
 		usage()
 		return
 	run(float(args[0]), float(args[1])/100, monthly, equityRatio, tent)
 
 def usage():
-	print('usage:  python3 simulate.py [--equity-ratio=RATIO] goalYears percentTakeOut')
+	print('usage:  python3 simulate.py [--monthly] [--equity-percent=PERCENT] goalYears percentTakeOut')
 
 def parse(data):
 	return float(data) if data != '' else None

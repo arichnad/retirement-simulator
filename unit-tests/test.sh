@@ -11,12 +11,12 @@ echo yearly
 ./simulate.py 40 4 |diff -u unit-tests/40-4-yearly -
 
 echo 75 percent equity
-[ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-ratio=.75 40 4 >unit-tests/40-4-75
-./simulate.py --equity-ratio=.75 40 4 |diff -u unit-tests/40-4-75 -
+[ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-percent=75 40 4 >unit-tests/40-4-75
+./simulate.py --equity-percent=75 40 4 |diff -u unit-tests/40-4-75 -
 
 echo debug
-[ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-ratio=.75 --debug 30 4 >unit-tests/1960-debug
-./simulate.py --equity-ratio=.75 --debug 30 4 |diff -u unit-tests/1960-debug -
+[ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-percent=75 --debug 30 4 >unit-tests/1960-debug
+./simulate.py --equity-percent=75 --debug 30 4 |diff -u unit-tests/1960-debug -
 
 echo monthly
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --monthly 40 4 >unit-tests/40-4-monthly
