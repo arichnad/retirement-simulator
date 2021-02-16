@@ -8,9 +8,10 @@ epsilon = 1e-6
 
 def main(argv):
 	monthly = False
+	equityRatio = None
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly'])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio='])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -20,13 +21,15 @@ def main(argv):
 			return
 		if opt in ('--monthly'):
 			monthly=True
+		if opt in ('--equity-ratio'):
+			equityRatio=float(arg)
 	if len(args) < 2:
 		usage()
 		return
-	run(float(args[0]), float(args[1])/100, monthly)
+	run(float(args[0]), float(args[1])/100, monthly, equityRatio)
 
 def usage():
-	print('usage:  python3 simulate.py goalYears percentTakeOut')
+	print('usage:  python3 simulate.py [--equity-ratio=RATIO] goalYears percentTakeOut')
 
 def parse(data):
 	return float(data) if data != '' else None
@@ -100,7 +103,7 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 	return good, getBalance(bank)
 	
 
-def run(goalYears, percentTakeOut, monthly):
+def run(goalYears, percentTakeOut, monthly, equityRatio):
 	#convert to yearly amount:
 	startMoneyToTakeOut = percentTakeOut
 
@@ -118,7 +121,7 @@ def run(goalYears, percentTakeOut, monthly):
 		}
 	
 	startMoney = 1
-	equityRatio = 1
+	equityRatio = equityRatio if equityRatio is not None else 1
 	startEquities = startMoney * equityRatio
 	startBonds = startMoney * (1 - equityRatio)
 	
