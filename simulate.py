@@ -153,7 +153,9 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 		
 		startDate+=relativedelta(months=1) if monthly else relativedelta(years=1)
 	
-	print('suceeded at keeping retirement money %.0f years %.0f%% of the simulations (average %.2f)' % (
+	print('equity %-3d%%, bond %-3d%%, %.0f years: success %.1f%% of the simulations (average %.3f)' % (
+		round(equityRatio*100),
+		round((1-equityRatio)*100),
 		goalYears,
 		goodCount / totalCount * 100,
 		totalBalance / totalCount))
