@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import csv, sys, getopt
+import csv, sys, getopt, copy
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -20,11 +20,11 @@ def main(argv):
 		if opt in ('-h', '--help'):
 			usage()
 			return
-		if opt in ('--monthly'):
+		elif opt in ('--monthly'):
 			monthly=True
-		if opt in ('--equity-ratio'):
+		elif opt in ('--equity-ratio'):
 			equityRatio=float(arg)
-		if opt in ('--debug'):
+		elif opt in ('--debug'):
 			global debug
 			debug=True
 	if len(args) < 2:
@@ -38,49 +38,58 @@ def usage():
 def parse(data):
 	return float(data) if data != '' else None
 
+def updateCostBasis(portfolio, moneyToTakeOut):
+	#avg cost basis
+	costBasis = portfolio['costBasis'] * moneyToTakeOut / portfolio['balance']
+	portfolio['costBasis'] -= costBasis
+	#this should only go negative if we fail
+	return costBasis
+
+def withdraw(portfolio, moneyToTakeOut):
+	costBasis = updateCostBasis(portfolio, moneyToTakeOut)
+	portfolio['balance'] -= moneyToTakeOut
+
 def withdrawalStrategy(data, bank, moneyToTakeOut):
-	bank['portfolio']['taxable'] -= moneyToTakeOut
+	withdraw(bank['portfolio']['taxable'], moneyToTakeOut)
 
-def calculateBondReturn(bondInterest, nextBondInterest):
-	#this is what other websites use:
-	return bondInterest
-
-	#not sure if this is right or not:
-	#return sum((
-	#	bondInterest/nextBondInterest,
-	#	bondInterest,
-	#	(1+nextBondInterest)**-119*(1-bondInterest/nextBondInterest)
-	#))
+#def calculateBondReturn(bondInterest, nextBondInterest):
+#	#not sure if this is right or not:
+#	return sum((
+#		bondInterest/nextBondInterest-1,
+#		(1+nextBondInterest)**-119*(1-bondInterest/nextBondInterest)
+#	))
 	
-def updatePortfolio(data, bank, portfolioName):
-	portfolio = bank['portfolio'][portfolioName]
+def updatePortfolio(data, bank, portfolio):
+	balance = portfolio['balance']
 	
 	date = bank['date']
 	nextDate = bank['nextDate']
 	
-	equities = bank['equityRatio'] * portfolio
-	bonds = portfolio - equities
+	equities = bank['equityRatio'] * balance
+	bonds = balance - equities
 	
 	equityReturn = equities * (data[nextDate]['sp500'] / data[date]['sp500'] - 1)
 	equityDividends = equities * data[date]['dividends'] / data[date]['sp500']
+	portfolio['costBasis'] += equityDividends
 	
-	bondReturn = bonds * calculateBondReturn(data[date]['bondInterest'], data[nextDate]['bondInterest'])
+	bondDividends = bonds * data[date]['bondInterest']
+	portfolio['costBasis'] += bondDividends
 
-	newPortfolio = sum((portfolio, equityReturn, equityDividends, bondReturn))
+	newBalance = sum((balance, equityReturn, equityDividends, bondDividends))
 	
 	global debug
 	if debug:
-		print(portfolio, equities, bonds, equityReturn, equityDividends, bondReturn, newPortfolio)
+		print(balance, equities, bonds, equityReturn, equityDividends, bondDividends, newBalance, portfolio['costBasis'])
 	
-	bank['portfolio'][portfolioName] = newPortfolio
+	portfolio['balance'] = newBalance
 
 def updateBalances(data, bank):
-	for portfolioName in bank['portfolio'].keys():
-		updatePortfolio(data, bank, portfolioName)
+	for portfolio in bank['portfolio'].values():
+		updatePortfolio(data, bank, portfolio)
 
 
 def getBalance(bank):
-	return sum(bank['portfolio'].values())
+	return sum(portfolio['balance'] for portfolio in bank['portfolio'].values())
 
 def oneTimeUnit(data, bank):
 	date = bank['date']
@@ -131,7 +140,10 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 	
 	startMoneyToTakeOut = timeRatio * percentTakeOut
 	portfolio = {
-		'taxable': 1,
+		'taxable': {
+			'balance': 1,
+			'costBasis': 1,
+		}
 	}
 	
 	startDate=datetime(1871,1,1)
@@ -145,7 +157,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 			'date': startDate,
 			'startDate': startDate,
 			'endDate': endDate,
-			'portfolio': portfolio.copy(),
+			'portfolio': copy.deepcopy(portfolio),
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
