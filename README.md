@@ -26,5 +26,4 @@ data
 
 ** [specifically this spreadsheet](http://www.econ.yale.edu/~shiller/data/ie_data.xls)
 
-`(echo 'date,s&p500,dividend,earnings,cpi,bondInterest'; cat shiller-raw.tsv |egrep '^[0-9]*\.01' |cut -f1-5,7 |sed -e 's/\.01//' -e 's/\t/,/g') >shiller.csv`
-
+`(echo 'date,s&p500,dividend,earnings,cpi,bondInterest'; cat shiller-raw.tsv |egrep '^[0-9]' |cut -f1-5,7 |sed -e 's/\./-/' -e 's/\t/,/g' -e 's/-1,/-10,/g') >shiller.csv`
