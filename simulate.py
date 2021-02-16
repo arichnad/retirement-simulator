@@ -60,8 +60,8 @@ def withdrawalStrategy(data, bank, moneyToTakeOut):
 def updateBalances(data, bank):
 	date = bank['date']
 	
-	bank['equities'] += bank['timeRatio'] * data[date]['dividends'] / data[date]['sp500'] * bank['equities']
-	bank['bonds'] *= bank['timeRatio'] * data[date]['bondInterest'] + 1
+	bank['equities'] += data[date]['dividends'] / data[date]['sp500'] * bank['equities']
+	bank['bonds'] *= data[date]['bondInterest'] + 1
 	
 	nextDate = date + bank['timeIncrement']
 	
@@ -73,7 +73,7 @@ def updateBalances(data, bank):
 def oneTimeUnit(data, bank):
 	date = bank['date']
 
-	moneyToTakeOut = bank['timeRatio'] * bank['startMoneyToTakeOut'] * data[date]['cpi'] / bank['startCpi']
+	moneyToTakeOut = bank['startMoneyToTakeOut'] * data[date]['cpi'] / bank['startCpi']
 	
 	withdrawalStrategy(data, bank, moneyToTakeOut)
 
@@ -106,6 +106,7 @@ def oneSimulation(data, bank, startDate, endDate, goalYears):
 def run(goalYears, percentTakeOut, monthly, equityRatio):
 	#convert to yearly amount:
 	startMoneyToTakeOut = percentTakeOut
+	timeRatio = 1/12 if monthly else 1
 
 	data = {}
 	#date,s&p500,dividend,earnings,cpi
@@ -114,10 +115,10 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 		date=datetime.strptime(date,'%Y-%m')
 		data[date] = {
 			'sp500': parse(sp500),
-			'dividends': parse(dividends),
+			'dividends': timeRatio * parse(dividends) if dividends != '' else None,
 			'earnings': parse(earnings),
 			'cpi': parse(cpi),
-			'bondInterest': parse(bondInterest)/100,
+			'bondInterest': timeRatio * parse(bondInterest)/100,
 		}
 	
 	startMoney = 1
@@ -137,10 +138,9 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 			'equities': startEquities,
 			'bonds': startBonds,
 			'startCpi': data[startDate]['cpi'],
-			'startMoneyToTakeOut': startMoneyToTakeOut,
+			'startMoneyToTakeOut': timeRatio * startMoneyToTakeOut,
 			'equityRatio': equityRatio,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
-			'timeRatio': 1/12 if monthly else 1,
 		}
 		good, balance = oneSimulation(data, bank, startDate, endDate, goalYears)
 
