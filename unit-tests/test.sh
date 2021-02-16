@@ -14,6 +14,10 @@ echo 75 percent equity
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-percent=75 40 4 >unit-tests/40-4-75
 ./simulate.py --equity-percent=75 40 4 |diff -u unit-tests/40-4-75 -
 
+echo tent
+[ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-percent=75 --tent=30,20 40 4 >unit-tests/40-4-75-tent
+./simulate.py --equity-percent=75 --tent=30,20 40 4 |diff -u unit-tests/40-4-75-tent -
+
 echo debug
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-percent=75 --debug 30 4 >unit-tests/1960-debug
 ./simulate.py --equity-percent=75 --debug 30 4 |diff -u unit-tests/1960-debug -
