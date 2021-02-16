@@ -10,6 +10,9 @@ echo yearly
 echo 75 percent equity
 ./simulate.py --equity-ratio=.75 40 4 |diff -u unit-tests/40-4-75 -
 
+echo debug
+./simulate.py --equity-ratio=.75 --debug 30 4 |diff -u unit-tests/debug -
+
 echo monthly
 ./simulate.py --monthly 40 4 |diff -u unit-tests/40-4-monthly -
 

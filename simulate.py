@@ -5,13 +5,14 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 epsilon = 1e-6
+debug = False
 
 def main(argv):
 	monthly = False
 	equityRatio = 1
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio='])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio=', 'debug'])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -23,6 +24,9 @@ def main(argv):
 			monthly=True
 		if opt in ('--equity-ratio'):
 			equityRatio=float(arg)
+		if opt in ('--debug'):
+			global debug
+			debug=True
 	if len(args) < 2:
 		usage()
 		return
@@ -57,11 +61,18 @@ def updatePortfolio(data, bank, portfolioName):
 	equities = bank['equityRatio'] * portfolio
 	bonds = portfolio - equities
 	
-	equities = equities * sum((data[nextDate]['sp500'], data[date]['dividends'])) / data[date]['sp500']
+	equityReturn = equities * (data[nextDate]['sp500'] / data[date]['sp500'] - 1)
+	equityDividends = equities * data[date]['dividends'] / data[date]['sp500']
 	
-	bonds += bonds * calculateBondReturn(data[date]['bondInterest'], data[nextDate]['bondInterest'])
+	bondReturn = bonds * calculateBondReturn(data[date]['bondInterest'], data[nextDate]['bondInterest'])
 
-	bank['portfolio'][portfolioName] = equities + bonds
+	newPortfolio = sum((portfolio, equityReturn, equityDividends, bondReturn))
+	
+	global debug
+	if debug:
+		print(portfolio, equities, bonds, equityReturn, equityDividends, bondReturn, newPortfolio)
+	
+	bank['portfolio'][portfolioName] = newPortfolio
 
 def updateBalances(data, bank):
 	for portfolioName in bank['portfolio'].keys():
@@ -86,18 +97,18 @@ def oneTimeUnit(data, bank):
 	return getBalance(bank) >= -epsilon
 
 
-def oneSimulation(data, bank, startDate, endDate, goalYears):
+def oneSimulation(data, bank, goalYears):
 	good = True
 	years = 0
-	while good and bank['date'] < endDate and years < goalYears:
+	while good and bank['date'] < bank['endDate'] and years < goalYears:
 		good = oneTimeUnit(data, bank)
 
-		years = (bank['date'] - startDate).days / 365
+		years = (bank['date'] - bank['startDate']).days / 365
 	
-	if bank['date'] == endDate and years < goalYears:
+	if bank['date'] == bank['endDate'] and years < goalYears:
 		return None, getBalance(bank)
 	
-	print(startDate, 'good' if good else 'bad')
+	print(bank['startDate'], 'good' if good else 'bad')
 	return good, getBalance(bank)
 	
 
@@ -128,17 +139,27 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 	goodCount = 0
 	totalCount = 0
 	totalBalance = 0
-	
-	while startDate < endDate:
-		bank = {
+
+	def setupBank():
+		return {
 			'date': startDate,
+			'startDate': startDate,
+			'endDate': endDate,
 			'portfolio': portfolio.copy(),
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 		}
-		good, balance = oneSimulation(data, bank, startDate, endDate, goalYears)
+
+	global debug
+	if debug:
+		startDate = datetime(1960,1,1)
+		oneSimulation(data, setupBank(), 30)
+		return
+	
+	while startDate < endDate:
+		good, balance = oneSimulation(data, setupBank(), goalYears)
 
 		if good is None: break
 		
