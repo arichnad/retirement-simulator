@@ -10,9 +10,10 @@ debug = False
 def main(argv):
 	monthly = False
 	equityRatio = 1
+	tent = None
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio=', 'debug'])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-ratio=', 'debug', 'tent='])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -27,10 +28,13 @@ def main(argv):
 		elif opt in ('--debug'):
 			global debug
 			debug=True
+		elif opt in ('--tent'):
+			tent=arg.split(',')
+			tent={'equityRatioChange': float(tent[0]), 'years': float(tent[1])}
 	if len(args) < 2:
 		usage()
 		return
-	run(float(args[0]), float(args[1])/100, monthly, equityRatio)
+	run(float(args[0]), float(args[1])/100, monthly, equityRatio, tent)
 
 def usage():
 	print('usage:  python3 simulate.py [--equity-ratio=RATIO] goalYears percentTakeOut')
@@ -59,13 +63,24 @@ def withdrawalStrategy(data, bank, moneyToTakeOut):
 #		(1+nextBondInterest)**-119*(1-bondInterest/nextBondInterest)
 #	))
 	
+def getEquityRatio(bank):
+	tent=bank['tent']
+	if tent is None:
+		return bank['equityRatio']
+	years = (bank['date'] - bank['startDate']).days / 365
+	equityRatio = bank['equityRatio'] + (years * tent['equityRatioChange']/tent['years'] - tent['equityRatioChange'] if years < tent['years'] else 0)
+	global debug
+	if debug:
+		print(equityRatio)
+	return equityRatio
+	
 def updatePortfolio(data, bank, portfolio):
 	balance = portfolio['balance']
 	
 	date = bank['date']
 	nextDate = bank['nextDate']
-	
-	equities = bank['equityRatio'] * balance
+
+	equities = getEquityRatio(bank) * balance
 	bonds = balance - equities
 	
 	equityReturn = equities * (data[nextDate]['sp500'] / data[date]['sp500'] - 1)
@@ -128,7 +143,7 @@ def oneSimulation(data, bank, goalYears):
 	return good, getBalance(bank)
 	
 
-def run(goalYears, percentTakeOut, monthly, equityRatio):
+def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 	#convert to yearly amount:
 	timeRatio = 1/12 if monthly else 1
 
@@ -170,6 +185,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 			'equityRatio': equityRatio,
 			'expenseRatio': timeRatio * .001,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
+			'tent': tent,
 		}
 
 	global debug
@@ -190,9 +206,9 @@ def run(goalYears, percentTakeOut, monthly, equityRatio):
 		
 		startDate+=relativedelta(months=1) if monthly else relativedelta(years=1)
 	
-	print('equity %-3d%%, bond %-3d%%, %.0f years: success %.1f%% of the simulations (average %.3f)' % (
-		round(equityRatio*100),
-		round((1-equityRatio)*100),
+	print('equity %s, bond %s, %.0f years: success %.1f%% of the simulations (average %.3f)' % (
+		'%-3d%%' % (round(equityRatio*100)) if tent is None else '????',
+		'%-3d%%' % (round((1-equityRatio)*100)) if tent is None else '????',
 		goalYears,
 		goodCount / totalCount * 100,
 		totalBalance / totalCount))
