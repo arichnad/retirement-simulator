@@ -29,8 +29,11 @@ def main(argv):
 			global debug
 			debug=True
 		elif opt in ('--tent'):
-			tent=arg.split(',')
-			tent={'equityRatioStart': float(tent[0])/100, 'years': float(tent[1])}
+			tentPercentStart, tentYears = arg.split(',')
+			tent={
+				'equityRatioStart': float(tentPercentStart)/100,
+				'years': float(tentYears)
+			}
 	if len(args) < 2:
 		usage()
 		return
@@ -86,7 +89,7 @@ def updatePortfolio(data, bank, portfolio):
 	bonds = balance - equities
 	
 	equityReturn = equities * (data[nextDate]['sp500'] / data[date]['sp500'] - 1)
-	equityDividends = equities * data[date]['dividends'] / data[date]['sp500']
+	equityDividends = equities * data[date]['dividends']
 	portfolio['costBasis'] += equityDividends
 	
 	bondDividends = bonds * data[date]['bondInterest']
@@ -156,7 +159,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 		date=datetime.strptime(date,'%Y-%m')
 		data[date] = {
 			'sp500': parse(sp500),
-			'dividends': timeRatio * parse(dividends) if dividends != '' else None,
+			'dividends': timeRatio * parse(dividends) / parse(sp500) if dividends != '' else None,
 			'earnings': parse(earnings),
 			'cpi': parse(cpi),
 			'bondInterest': timeRatio * parse(bondInterest)/100,
