@@ -30,7 +30,7 @@ def main(argv):
 			debug=True
 		elif opt in ('--tent'):
 			tent=arg.split(',')
-			tent={'equityRatioChange': float(tent[0])/100, 'years': float(tent[1])}
+			tent={'equityRatioStart': float(tent[0])/100, 'years': float(tent[1])}
 	if len(args) < 2:
 		usage()
 		return
@@ -68,7 +68,9 @@ def getEquityRatio(bank):
 	if tent is None:
 		return bank['equityRatio']
 	years = (bank['date'] - bank['startDate']).days / 365
-	equityRatio = bank['equityRatio'] + (years * tent['equityRatioChange']/tent['years'] - tent['equityRatioChange'] if years < tent['years'] else 0)
+	equityRatio = bank['equityRatio']
+	if years < tent['years']:
+		equityRatio = years / tent['years'] * (bank['equityRatio']-tent['equityRatioStart']) + tent['equityRatioStart']
 	global debug
 	if debug:
 		print(equityRatio)
@@ -210,7 +212,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 		round(equityRatio*100),
 		round((1-equityRatio)*100),
 		'tent %d,%d, ' % (
-			round(tent['equityRatioChange']*100), tent['years']
+			round(tent['equityRatioStart']*100), tent['years']
 		) if tent else '',
 		goalYears,
 		goodCount / totalCount * 100,
