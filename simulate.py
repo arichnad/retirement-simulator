@@ -206,9 +206,12 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 		
 		startDate+=relativedelta(months=1) if monthly else relativedelta(years=1)
 	
-	print('equity %s, bond %s, %.0f years: success %.1f%% of the simulations (average %.3f)' % (
-		'%-3d%%' % (round(equityRatio*100)) if tent is None else '????',
-		'%-3d%%' % (round((1-equityRatio)*100)) if tent is None else '????',
+	print('equity %-3d%%, bond %-3d%%, %s%.0f years: success %.1f%% of the simulations (average ending balance %.3f)' % (
+		round(equityRatio*100),
+		round((1-equityRatio)*100),
+		'tent %d,%d, ' % (
+			round(tent['equityRatioChange']*100), tent['years']
+		) if tent else '',
 		goalYears,
 		goodCount / totalCount * 100,
 		totalBalance / totalCount))
