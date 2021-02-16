@@ -21,7 +21,7 @@ python3 simulate.py --equity-percent=75 35 4
 
 * This above example states you want retirement money to last 35 years or longer.
 
-* The example also states you want to want to take out 4% of your starting balance [adjusted for inflation](https://en.wikipedia.org/wiki/Consumer_price_index).
+* The example also states you want to want to take out 4% of your starting balance per year [adjusted for inflation](https://en.wikipedia.org/wiki/Consumer_price_index).
 
 * Will run between 1871 and 2016 and tell you which retirement start times will succeed and which will fail.
 
