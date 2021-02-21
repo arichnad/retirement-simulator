@@ -5,15 +5,18 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 epsilon = 1e-6
-debug = False
+debugYear = None
+verbose = False
 
 def main(argv):
 	monthly = False
 	equityRatio = 1
 	tent = None
+	expenseRatio = .001
+	skipDividends = False
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'debug', 'tent='])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'debug=', 'expenseRatio=', 'skipDividends', 'verbose'])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -26,21 +29,29 @@ def main(argv):
 		elif opt in ('--equity-percent'):
 			equityRatio=float(arg)/100
 		elif opt in ('--debug'):
-			global debug
-			debug=True
+			global debugYear
+			print('balance equities bonds / equityReturn equityDividends bondDividends netExpense / newBalance costBasis')
+			debugYear=int(arg)
+		elif opt in ('--verbose'):
+			global verbose
+			verbose = True
 		elif opt in ('--tent'):
 			tentPercentStart, tentYears = arg.split(',')
 			tent={
 				'equityRatioStart': float(tentPercentStart)/100,
 				'years': float(tentYears)
 			}
+		elif opt in ('--expenseRatio'):
+			expenseRatio = float(arg)/100
+		elif opt in ('--skipDividends'):
+			skipDividends = True
 	if len(args) < 2:
 		usage()
 		return
-	run(float(args[0]), float(args[1])/100, monthly, equityRatio, tent)
+	run(float(args[0]), float(args[1])/100, monthly, equityRatio, tent, expenseRatio, skipDividends)
 
 def usage():
-	print('usage:  python3 simulate.py [--monthly] [--equity-percent=PERCENT] goalYears percentTakeOut')
+	print('usage:  python3 simulate.py [--monthly] [--verbose] [--equity-percent=PERCENT] goalYears percentTakeOut')
 
 def parse(data):
 	return float(data) if data != '' else None
@@ -74,9 +85,6 @@ def getEquityRatio(bank):
 	equityRatio = bank['equityRatio']
 	if years < tent['years']:
 		equityRatio = years / tent['years'] * (bank['equityRatio']-tent['equityRatioStart']) + tent['equityRatioStart']
-	global debug
-	if debug:
-		print(equityRatio)
 	return equityRatio
 	
 def updatePortfolio(data, bank, portfolio):
@@ -99,8 +107,8 @@ def updatePortfolio(data, bank, portfolio):
 	newBalance = sum((balance, equityReturn, equityDividends, bondDividends, netExpense))
 	portfolio['costBasis'] += sum((equityDividends, bondDividends, -netExpense))
 	
-	global debug
-	if debug:
+	global debugYear
+	if debugYear is not None:
 		print('%.3f %.3f %.3f / %.4f %.4f %.4f %.4f / %.3f %.3f' % (
 			balance, equities, bonds,
 			equityReturn, equityDividends, bondDividends, netExpense,
@@ -142,11 +150,13 @@ def oneSimulation(data, bank, goalYears):
 	if bank['date'] >= bank['endDate']:
 		return None, None
 	
-	print(bank['startDate'], 'good' if good else 'bad')
+	global verbose
+	if verbose:
+		print(bank['startDate'], 'good' if good else 'bad')
 	return good, getBalance(bank)
 	
 
-def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
+def run(goalYears, percentTakeOut, monthly, equityRatio, tent, expenseRatio, skipDividends):
 	#convert to yearly amount:
 	timeRatio = 1/12 if monthly else 1
 
@@ -155,9 +165,10 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 	for date,sp500,dividends,earnings,cpi,bondInterest in csv.reader(open('shiller.csv', 'r')):
 		if date.lower() == 'date': continue
 		date=datetime.strptime(date,'%Y-%m')
+		dividends = (parse(dividends) / parse(sp500) + 1) ** timeRatio - 1 if dividends != '' and not skipDividends else 0
 		data[date] = {
 			'sp500': parse(sp500),
-			'dividends': (parse(dividends) / parse(sp500) + 1) ** timeRatio - 1 if dividends != '' else None,
+			'dividends': dividends,
 			'earnings': parse(earnings),
 			'cpi': parse(cpi),
 			'bondInterest': (parse(bondInterest)/100 + 1) ** timeRatio - 1,
@@ -186,15 +197,15 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
-			'expenseRatio': 1.001 ** timeRatio - 1,
+			'expenseRatio': (expenseRatio + 1) ** timeRatio - 1,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 			'tent': tent,
 		}
 
-	global debug
-	if debug:
-		startDate = datetime(1960,1,1)
-		oneSimulation(data, setupBank(), 30)
+	global debugYear
+	if debugYear is not None:
+		startDate = datetime(debugYear,1,1)
+		oneSimulation(data, setupBank(), goalYears)
 		return
 	
 	while startDate < endDate:
