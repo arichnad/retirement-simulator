@@ -139,8 +139,8 @@ def oneSimulation(data, bank, goalYears):
 
 		years = (bank['date'] - bank['startDate']).days / 365
 	
-	if bank['date'] == bank['endDate'] and years < goalYears:
-		return None, getBalance(bank)
+	if bank['date'] >= bank['endDate']:
+		return None, None
 	
 	print(bank['startDate'], 'good' if good else 'bad')
 	return good, getBalance(bank)
