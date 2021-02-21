@@ -45,30 +45,30 @@ def main(argv):
 			expenseRatio = float(arg)/100
 		elif opt in ('--skipDividends'):
 			skipDividends = True
-	if len(args) < 2:
+	if len(args) < 3:
 		usage()
 		return
-	run(float(args[0]), float(args[1])/100, monthly, equityRatio, tent, expenseRatio, skipDividends)
+	run(float(args[0]), float(args[1]), float(args[2]), monthly, equityRatio, tent, expenseRatio, skipDividends)
 
 def usage():
-	print('usage:  python3 simulate.py [--monthly] [--verbose] [--equity-percent=PERCENT] goalYears percentTakeOut')
+	print('usage:  python3 simulate.py [--monthly] [--verbose] [--equity-percent=PERCENT] goalYears startAnnualSpending portfolioSize')
 
 def parse(data):
 	return float(data) if data != '' else None
 
-def updateCostBasis(portfolio, moneyToTakeOut):
+def updateCostBasis(portfolio, spending):
 	#avg cost basis
-	costBasis = portfolio['costBasis'] * moneyToTakeOut / portfolio['balance']
+	costBasis = portfolio['costBasis'] * spending / portfolio['balance']
 	portfolio['costBasis'] -= costBasis
 	#this should only go negative if we fail
 	return costBasis
 
-def withdraw(portfolio, moneyToTakeOut):
-	costBasis = updateCostBasis(portfolio, moneyToTakeOut)
-	portfolio['balance'] -= moneyToTakeOut
+def withdraw(portfolio, spending):
+	costBasis = updateCostBasis(portfolio, spending)
+	portfolio['balance'] -= spending 
 
-def withdrawalStrategy(data, bank, moneyToTakeOut):
-	withdraw(bank['portfolio']['taxable'], moneyToTakeOut)
+def withdrawalStrategy(data, bank, spending):
+	withdraw(bank['portfolio']['taxable'], spending)
 
 #def calculateBondReturn(bondInterest, nextBondInterest):
 #	#not sure if this is right or not:
@@ -128,9 +128,9 @@ def oneTimeUnit(data, bank):
 	date = bank['date']
 	nextDate = bank['nextDate'] = date + bank['timeIncrement']
 	
-	moneyToTakeOut = bank['startMoneyToTakeOut'] * data[nextDate]['cpi'] / bank['startCpi']
+	spending = bank['startSpending'] * data[nextDate]['cpi'] / bank['startCpi']
 	
-	withdrawalStrategy(data, bank, moneyToTakeOut)
+	withdrawalStrategy(data, bank, spending)
 
 	updateBalances(data, bank)
 	
@@ -156,7 +156,7 @@ def oneSimulation(data, bank, goalYears):
 	return good, getBalance(bank)
 	
 
-def run(goalYears, percentTakeOut, monthly, equityRatio, tent, expenseRatio, skipDividends):
+def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, tent, expenseRatio, skipDividends):
 	#convert to yearly amount:
 	timeRatio = 1/12 if monthly else 1
 
@@ -174,11 +174,11 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent, expenseRatio, ski
 			'bondInterest': (parse(bondInterest)/100 + 1) ** timeRatio - 1,
 		}
 	
-	startMoneyToTakeOut = percentTakeOut * timeRatio
+	startSpending = startAnnualSpending * timeRatio
 	portfolio = {
 		'taxable': {
-			'balance': 1,
-			'costBasis': 1,
+			'balance': portfolioSize,
+			'costBasis': portfolioSize,
 		}
 	}
 	
@@ -195,7 +195,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent, expenseRatio, ski
 			'endDate': endDate,
 			'portfolio': copy.deepcopy(portfolio),
 			'startCpi': data[startDate]['cpi'],
-			'startMoneyToTakeOut': startMoneyToTakeOut,
+			'startSpending': startSpending,
 			'equityRatio': equityRatio,
 			'expenseRatio': (expenseRatio + 1) ** timeRatio - 1,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),

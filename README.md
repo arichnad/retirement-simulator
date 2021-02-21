@@ -4,12 +4,12 @@ a simulator for retirement.
 usage
 =====
 
-python3 simulate.py [--monthly] [--equity-percent=PERCENT] goalYears percentTakeOut
+python3 simulate.py [--monthly] [--equity-percent=PERCENT] goalYears startAnnualSpending portfolioSize
 
 example
 =======
 
-python3 simulate.py --equity-percent=75 35 4
+python3 simulate.py --verbose --equity-percent=75 35 4 100
 
 * 75% of the money is placed in an investment that follows the [S&P 500 index](https://en.wikipedia.org/wiki/S%26P_500_Index).
 
