@@ -90,16 +90,14 @@ def updatePortfolio(data, bank, portfolio):
 	
 	equityReturn = equities * (data[nextDate]['sp500'] / data[date]['sp500'] - 1)
 	equityDividends = equities * data[date]['dividends']
-	portfolio['costBasis'] += equityDividends
 	
 	bondDividends = bonds * data[date]['bondInterest']
-	portfolio['costBasis'] += bondDividends
 
 	#i'm not sure why we don't include the full ending balance here, but whatever
 	netExpense = - sum((balance, equityReturn, bondDividends)) * bank['expenseRatio']
-	portfolio['costBasis'] += -netExpense
 
 	newBalance = sum((balance, equityReturn, equityDividends, bondDividends, netExpense))
+	portfolio['costBasis'] += sum((equityDividends, bondDividends, -netExpense))
 	
 	global debug
 	if debug:
@@ -159,13 +157,13 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 		date=datetime.strptime(date,'%Y-%m')
 		data[date] = {
 			'sp500': parse(sp500),
-			'dividends': timeRatio * parse(dividends) / parse(sp500) if dividends != '' else None,
+			'dividends': (parse(dividends) / parse(sp500) + 1) ** timeRatio - 1 if dividends != '' else None,
 			'earnings': parse(earnings),
 			'cpi': parse(cpi),
-			'bondInterest': timeRatio * parse(bondInterest)/100,
+			'bondInterest': (parse(bondInterest)/100 + 1) ** timeRatio - 1,
 		}
 	
-	startMoneyToTakeOut = timeRatio * percentTakeOut
+	startMoneyToTakeOut = percentTakeOut * timeRatio
 	portfolio = {
 		'taxable': {
 			'balance': 1,
@@ -188,7 +186,7 @@ def run(goalYears, percentTakeOut, monthly, equityRatio, tent):
 			'startCpi': data[startDate]['cpi'],
 			'startMoneyToTakeOut': startMoneyToTakeOut,
 			'equityRatio': equityRatio,
-			'expenseRatio': timeRatio * .001,
+			'expenseRatio': 1.001 ** timeRatio - 1,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 			'tent': tent,
 		}
