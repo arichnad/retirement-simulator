@@ -10,11 +10,13 @@ verbose = False
 
 def main(argv):
 	monthly = False
-	equityRatio = 1
-	tent = None
-	extraSpending = None
-	expenseRatio = .001
 	skipDividends = False
+	bank = {
+		'equityRatio': 1,
+		'tent': None,
+		'extraSpending': None,
+		'expenseRatio': .001,
+	}
 
 	try:
 		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'extra-spending=', 'debug=', 'expenseRatio=', 'skipDividends', 'verbose'])
@@ -28,7 +30,7 @@ def main(argv):
 		elif opt in ('--monthly'):
 			monthly=True
 		elif opt in ('--equity-percent'):
-			equityRatio=float(arg)/100
+			bank['equityRatio']=float(arg)/100
 		elif opt in ('--debug'):
 			global debugYear
 			print('balance equities bonds / equityReturn equityDividends bondDividends netExpense / newBalance costBasis')
@@ -38,25 +40,35 @@ def main(argv):
 			verbose = True
 		elif opt in ('--tent'):
 			tentPercentStart, tentYears = arg.split(',')
-			tent={
+			bank['tent']={
 				'equityRatioStart': float(tentPercentStart)/100,
 				'years': float(tentYears)
 			}
 		elif opt in ('--extra-spending'):
 			extraSpendingAmount, extraSpendingYears = arg.split(',')
-			extraSpending={
+			bank['extraSpending']={
 				'amount': float(extraSpendingAmount),
 				'years': float(extraSpendingYears),
 				'real': False,
 			}
 		elif opt in ('--expenseRatio'):
-			expenseRatio = float(arg)/100
+			bank['expenseRatio'] = float(arg)/100
 		elif opt in ('--skipDividends'):
 			skipDividends = True
 	if len(args) < 3:
 		usage()
 		return
-	run(float(args[0]), float(args[1]), float(args[2]), monthly, equityRatio, tent, extraSpending, expenseRatio, skipDividends)
+	
+	bank['startSpending'] = float(args[1])
+	bank['portfolio'] = {
+		'taxable': {
+			'balance': float(args[2]),
+			'costBasis': float(args[2]),
+		}
+	}
+	bank = adjustDueToTime(bank, monthly)
+
+	run(bank, float(args[0]), monthly, skipDividends)
 
 def usage():
 	print('usage:  python3 simulate.py [--monthly] [--verbose] [--equity-percent=PERCENT] goalYears startAnnualSpending portfolioSize')
@@ -177,13 +189,26 @@ def oneSimulation(data, bank, goalYears):
 def adjustExtraSpending(extraSpending, timeRatio):
 	if extraSpending is None:
 		return None
-	extraSpending = extraSpending.copy()
-	extraSpending['amount'] *= timeRatio
-	return extraSpending
+	return {
+		**extraSpending,
+		'amount': extraSpending['amount'] * timeRatio,
+	}
 
-def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, tent, extraSpending, expenseRatio, skipDividends):
-	#convert to yearly amount:
-	timeRatio = 1/12 if monthly else 1
+def getTimeRatio(monthly):
+	return 1/12 if monthly else 1
+
+def adjustDueToTime(bank, monthly):
+	timeRatio = getTimeRatio(monthly)
+	return {
+		**bank,
+		'startSpending': bank['startSpending'] * timeRatio,
+		'expenseRatio': (bank['expenseRatio'] + 1) ** timeRatio - 1,
+		'extraSpending': adjustExtraSpending(bank['extraSpending'], timeRatio),
+		'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
+	}
+
+def run(bank, goalYears, monthly, skipDividends):
+	timeRatio = getTimeRatio(monthly)
 
 	data = {}
 	#date,s&p500,dividend,earnings,cpi
@@ -199,14 +224,6 @@ def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, ten
 			'bondInterest': (parse(bondInterest)/100 + 1) ** timeRatio - 1,
 		}
 	
-	startSpending = startAnnualSpending * timeRatio
-	portfolio = {
-		'taxable': {
-			'balance': portfolioSize,
-			'costBasis': portfolioSize,
-		}
-	}
-	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
 	goodCount = 0
@@ -215,17 +232,12 @@ def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, ten
 
 	def setupBank():
 		return {
+			**bank,
 			'date': startDate,
 			'startDate': startDate,
 			'endDate': endDate,
-			'portfolio': copy.deepcopy(portfolio),
+			'portfolio': copy.deepcopy(bank['portfolio']),
 			'startCpi': data[startDate]['cpi'],
-			'startSpending': startSpending,
-			'equityRatio': equityRatio,
-			'expenseRatio': (expenseRatio + 1) ** timeRatio - 1,
-			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
-			'tent': tent,
-			'extraSpending': adjustExtraSpending(extraSpending, timeRatio),
 		}
 
 	global debugYear
@@ -244,14 +256,14 @@ def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, ten
 		totalCount += 1
 		totalBalance += balance
 		
-		startDate+=relativedelta(months=1) if monthly else relativedelta(years=1)
+		startDate+=bank['timeIncrement']
 	
 	print('equity %-3d%%, bond %-3d%%, %s%.0f years: success %.1f%% of the simulations (average ending balance %.3f)' % (
-		round(equityRatio*100),
-		round((1-equityRatio)*100),
+		round(bank['equityRatio']*100),
+		round((1-bank['equityRatio'])*100),
 		'tent %d,%d, ' % (
-			round(tent['equityRatioStart']*100), tent['years']
-		) if tent else '',
+			round(bank['tent']['equityRatioStart']*100), bank['tent']['years']
+		) if bank['tent'] else '',
 		goalYears,
 		goodCount / totalCount * 100,
 		totalBalance / totalCount))
