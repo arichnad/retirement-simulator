@@ -12,11 +12,12 @@ def main(argv):
 	monthly = False
 	equityRatio = 1
 	tent = None
+	extraSpending = None
 	expenseRatio = .001
 	skipDividends = False
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'debug=', 'expenseRatio=', 'skipDividends', 'verbose'])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'extra-spending=', 'debug=', 'expenseRatio=', 'skipDividends', 'verbose'])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -41,6 +42,13 @@ def main(argv):
 				'equityRatioStart': float(tentPercentStart)/100,
 				'years': float(tentYears)
 			}
+		elif opt in ('--extra-spending'):
+			extraSpendingAmount, extraSpendingYears = arg.split(',')
+			extraSpending={
+				'amount': float(extraSpendingAmount),
+				'years': float(extraSpendingYears),
+				'real': False,
+			}
 		elif opt in ('--expenseRatio'):
 			expenseRatio = float(arg)/100
 		elif opt in ('--skipDividends'):
@@ -48,7 +56,7 @@ def main(argv):
 	if len(args) < 3:
 		usage()
 		return
-	run(float(args[0]), float(args[1]), float(args[2]), monthly, equityRatio, tent, expenseRatio, skipDividends)
+	run(float(args[0]), float(args[1]), float(args[2]), monthly, equityRatio, tent, extraSpending, expenseRatio, skipDividends)
 
 def usage():
 	print('usage:  python3 simulate.py [--monthly] [--verbose] [--equity-percent=PERCENT] goalYears startAnnualSpending portfolioSize')
@@ -77,12 +85,15 @@ def withdrawalStrategy(data, bank, spending):
 #		(1+nextBondInterest)**-119*(1-bondInterest/nextBondInterest)
 #	))
 	
+def getYears(bank):
+	return (bank['date'] - bank['startDate']).days / 365
+
 def getEquityRatio(bank):
 	tent=bank['tent']
 	if tent is None:
 		return bank['equityRatio']
-	years = (bank['date'] - bank['startDate']).days / 365
 	equityRatio = bank['equityRatio']
+	years = getYears(bank)
 	if years < tent['years']:
 		equityRatio = years / tent['years'] * (bank['equityRatio']-tent['equityRatioStart']) + tent['equityRatioStart']
 	return equityRatio
@@ -124,13 +135,23 @@ def updateBalances(data, bank):
 def getBalance(bank):
 	return sum(portfolio['balance'] for portfolio in bank['portfolio'].values())
 
+def getSpending(data, bank):
+	inflation = data[bank['nextDate']]['cpi'] / bank['startCpi']
+
+	spending = bank['startSpending'] * inflation
+	if bank['extraSpending'] is not None and getYears(bank) < bank['extraSpending']['years']:
+		extraSpending = bank['extraSpending']['amount']
+		if bank['extraSpending']['real']:
+			extraSpending *= inflation
+		spending += extraSpending
+	
+	return spending
+
 def oneTimeUnit(data, bank):
 	date = bank['date']
 	nextDate = bank['nextDate'] = date + bank['timeIncrement']
-	
-	spending = bank['startSpending'] * data[nextDate]['cpi'] / bank['startCpi']
-	
-	withdrawalStrategy(data, bank, spending)
+
+	withdrawalStrategy(data, bank, getSpending(data, bank))
 
 	updateBalances(data, bank)
 	
@@ -141,11 +162,9 @@ def oneTimeUnit(data, bank):
 
 def oneSimulation(data, bank, goalYears):
 	good = True
-	years = 0
-	while good and bank['date'] < bank['endDate'] and years < goalYears:
+	
+	while good and bank['date'] < bank['endDate'] and getYears(bank) < goalYears:
 		good = oneTimeUnit(data, bank)
-
-		years = (bank['date'] - bank['startDate']).days / 365
 	
 	if bank['date'] >= bank['endDate']:
 		return None, None
@@ -154,9 +173,15 @@ def oneSimulation(data, bank, goalYears):
 	if verbose:
 		print(bank['startDate'], 'good' if good else 'bad')
 	return good, getBalance(bank)
-	
 
-def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, tent, expenseRatio, skipDividends):
+def adjustExtraSpending(extraSpending, timeRatio):
+	if extraSpending is None:
+		return None
+	extraSpending = extraSpending.copy()
+	extraSpending['amount'] *= timeRatio
+	return extraSpending
+
+def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, tent, extraSpending, expenseRatio, skipDividends):
 	#convert to yearly amount:
 	timeRatio = 1/12 if monthly else 1
 
@@ -200,6 +225,7 @@ def run(goalYears, startAnnualSpending, portfolioSize, monthly, equityRatio, ten
 			'expenseRatio': (expenseRatio + 1) ** timeRatio - 1,
 			'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 			'tent': tent,
+			'extraSpending': adjustExtraSpending(extraSpending, timeRatio),
 		}
 
 	global debugYear
