@@ -36,3 +36,7 @@ data
 
 * output data was compared to firecalc.com
 
+dev notes
+=========
+
+* `sed -i 's/#@profile/@profile/' simulate.py && kernprof -l ./simulate.py --monthly --equity-percent=75 35 4 100 && python3 -m line_profiler simulate.py.lprof >timing && sed -i 's/^@profile/#&/' simulate.py`

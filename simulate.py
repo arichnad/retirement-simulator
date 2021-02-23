@@ -83,6 +83,7 @@ def updateCostBasis(portfolio, spending):
 	#this should only go negative if we fail
 	return costBasis
 
+#@profile
 def withdraw(portfolio, spending):
 	costBasis = updateCostBasis(portfolio, spending)
 	portfolio['balance'] -= spending 
@@ -110,16 +111,16 @@ def getEquityRatio(bank):
 		equityRatio = years / tent['years'] * (bank['equityRatio']-tent['equityRatioStart']) + tent['equityRatioStart']
 	return equityRatio
 	
+#@profile
 def updatePortfolio(data, bank, portfolio):
 	balance = portfolio['balance']
 	
 	date = bank['date']
-	nextDate = bank['nextDate']
 
 	equities = getEquityRatio(bank) * balance
 	bonds = balance - equities
 	
-	equityReturn = equities * (data[nextDate]['sp500'] / data[date]['sp500'] - 1)
+	equityReturn = equities * data[date]['sp500Increase']
 	equityDividends = equities * data[date]['dividends']
 	
 	bondDividends = bonds * data[date]['bondInterest']
@@ -148,7 +149,7 @@ def getBalance(bank):
 	return sum(portfolio['balance'] for portfolio in bank['portfolio'].values())
 
 def getSpending(data, bank):
-	inflation = data[bank['nextDate']]['cpi'] / bank['startCpi']
+	inflation = data[bank['date']]['nextCpi'] / bank['startCpi']
 
 	spending = bank['startSpending'] * inflation
 	if bank['extraSpending'] is not None and getYears(bank) < bank['extraSpending']['years']:
@@ -159,19 +160,18 @@ def getSpending(data, bank):
 	
 	return spending
 
+#@profile
 def oneTimeUnit(data, bank):
-	date = bank['date']
-	nextDate = bank['nextDate'] = date + bank['timeIncrement']
-
 	withdrawalStrategy(data, bank, getSpending(data, bank))
 
 	updateBalances(data, bank)
 	
-	bank['date'] = nextDate
+	bank['date'] = data[bank['date']]['nextDate']
 	
 	return getBalance(bank) >= -epsilon
 
 
+#@profile
 def oneSimulation(data, bank, goalYears):
 	good = True
 	
@@ -204,11 +204,12 @@ def adjustDueToTime(bank, monthly):
 		'startSpending': bank['startSpending'] * timeRatio,
 		'expenseRatio': (bank['expenseRatio'] + 1) ** timeRatio - 1,
 		'extraSpending': adjustExtraSpending(bank['extraSpending'], timeRatio),
-		'timeIncrement': relativedelta(months=1) if monthly else relativedelta(years=1),
 	}
 
+#@profile
 def run(bank, goalYears, monthly, skipDividends):
 	timeRatio = getTimeRatio(monthly)
+	timeIncrement = relativedelta(months=1) if monthly else relativedelta(years=1)
 
 	data = {}
 	#date,s&p500,dividend,earnings,cpi
@@ -217,12 +218,20 @@ def run(bank, goalYears, monthly, skipDividends):
 		date=datetime.strptime(date,'%Y-%m')
 		dividends = (parse(dividends) / parse(sp500) + 1) ** timeRatio - 1 if dividends != '' and not skipDividends else 0
 		data[date] = {
+			'nextDate': date + timeIncrement,
 			'sp500': parse(sp500),
 			'dividends': dividends,
 			'earnings': parse(earnings),
 			'cpi': parse(cpi),
 			'bondInterest': (parse(bondInterest)/100 + 1) ** timeRatio - 1,
 		}
+	
+	for dataEntry in data.values():
+		nextDate = dataEntry['nextDate']
+		if nextDate not in data:
+			break
+		dataEntry['sp500Increase'] = data[nextDate]['sp500'] / dataEntry['sp500'] - 1
+		dataEntry['nextCpi'] = data[nextDate]['cpi']
 	
 	startDate=datetime(1871,1,1)
 	endDate=datetime(2016,1,1)
@@ -256,7 +265,7 @@ def run(bank, goalYears, monthly, skipDividends):
 		totalCount += 1
 		totalBalance += balance
 		
-		startDate+=bank['timeIncrement']
+		startDate = data[startDate]['nextDate']
 	
 	print('equity %-3d%%, bond %-3d%%, %s%.0f years: success %.1f%% of the simulations (average ending balance %.3f)' % (
 		round(bank['equityRatio']*100),

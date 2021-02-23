@@ -6,6 +6,9 @@ cd ..
 
 #regenerateOutputs=yes
 
+start=$(date +%s)
+
+
 echo yearly
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --verbose 40 .04 1 >unit-tests/40-4-yearly
 ./simulate.py --verbose 40 .04 1 |diff -u unit-tests/40-4-yearly -
@@ -35,5 +38,7 @@ echo monthly
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --monthly --verbose 40 .04 1 >unit-tests/40-4-monthly
 ./simulate.py --monthly --verbose 40 .04 1 |diff -u unit-tests/40-4-monthly -
 
-echo SUCCESS
+runtime=$(($(date +%s)-start))
+
+echo SUCCESS $runtime
 
