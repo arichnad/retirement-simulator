@@ -33,7 +33,7 @@ def main(argv):
 			bank['equityRatio']=float(arg)/100
 		elif opt in ('--debug'):
 			global debugYear
-			print('balance equities bonds / equityReturn equityDividends bondDividends netExpense / newBalance costBasis')
+			print('balance / spending capitalGainsTax / equities bonds / equityReturn equityDividends bondDividends netExpense / newBalance costBasis')
 			debugYear=int(arg)
 		elif opt in ('--verbose'):
 			global verbose
@@ -83,10 +83,25 @@ def updateCostBasis(portfolio, spending):
 	#this should only go negative if we fail
 	return costBasis
 
+def calculateCapitalGains(portfolio, spending):
+	capitalGainsTax = 0
+
+	return capitalGainsTax
+
 #@profile
 def withdraw(portfolio, spending):
-	costBasis = updateCostBasis(portfolio, spending)
-	portfolio['balance'] -= spending 
+	capitalGainsTax = calculateCapitalGains(portfolio, spending)
+	
+	global debugYear
+	if debugYear is not None:
+		print('%.3f / %.3f %.3f / ' % (
+			portfolio['balance'], -spending, -capitalGainsTax,
+			), end='')
+
+	spendingWithTaxes = sum((spending, capitalGainsTax))
+
+	updateCostBasis(portfolio, spendingWithTaxes)
+	portfolio['balance'] -= spendingWithTaxes
 
 def withdrawalStrategy(data, bank, spending):
 	withdraw(bank['portfolio']['taxable'], spending)
@@ -133,8 +148,8 @@ def updatePortfolio(data, bank, portfolio):
 	
 	global debugYear
 	if debugYear is not None:
-		print('%.3f %.3f %.3f / %.4f %.4f %.4f %.4f / %.3f %.3f' % (
-			balance, equities, bonds,
+		print('%.3f %.3f / %.4f %.4f %.4f %.4f / %.3f %.3f' % (
+			equities, bonds,
 			equityReturn, equityDividends, bondDividends, netExpense,
 			newBalance, portfolio['costBasis']))
 	
