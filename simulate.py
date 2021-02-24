@@ -19,7 +19,7 @@ def main(argv):
 	}
 
 	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'extra-spending=', 'debug=', 'expenseRatio=', 'skipDividends', 'verbose'])
+		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'extra-spending=', 'debug=', 'expense-ratio=', 'skip-dividends', 'verbose'])
 	except getopt.GetoptError:
 		usage()
 		return
@@ -51,9 +51,9 @@ def main(argv):
 				'years': float(extraSpendingYears),
 				'real': False,
 			}
-		elif opt in ('--expenseRatio'):
+		elif opt in ('--expense-ratio'):
 			bank['expenseRatio'] = float(arg)/100
-		elif opt in ('--skipDividends'):
+		elif opt in ('--skip-dividends'):
 			skipDividends = True
 	if len(args) < 3:
 		usage()
