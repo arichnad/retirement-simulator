@@ -1,77 +1,92 @@
 #!/usr/bin/python3
 
-import csv, sys, getopt, copy
+import csv, sys, copy
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+import argparse
 
 epsilon = 1e-6
 debugYear = None
 verbose = False
 
-def main(argv):
-	monthly = False
-	skipDividends = False
-	bank = {
-		'equityRatio': 1,
-		'tent': None,
-		'extraSpending': None,
-		'expenseRatio': .001,
+def getTent(arg):
+	tentPercentStart, tentYears = arg.split(',')
+	return {
+		'equityRatioStart': float(tentPercentStart)/100,
+		'years': float(tentYears)
 	}
 
-	try:
-		opts, args = getopt.getopt(argv,'h', ['help', 'monthly', 'equity-percent=', 'tent=', 'extra-spending=', 'debug=', 'expense-ratio=', 'skip-dividends', 'verbose'])
-	except getopt.GetoptError:
-		usage()
-		return
-	for opt, arg in opts:
-		if opt in ('-h', '--help'):
-			usage()
-			return
-		elif opt in ('--monthly'):
-			monthly=True
-		elif opt in ('--equity-percent'):
-			bank['equityRatio']=float(arg)/100
-		elif opt in ('--debug'):
-			global debugYear
-			print('balance / spending capitalGainsTax / equities bonds / equityReturn equityDividends bondDividends netExpense / newBalance costBasis')
-			debugYear=int(arg)
-		elif opt in ('--verbose'):
-			global verbose
-			verbose = True
-		elif opt in ('--tent'):
-			tentPercentStart, tentYears = arg.split(',')
-			bank['tent']={
-				'equityRatioStart': float(tentPercentStart)/100,
-				'years': float(tentYears)
-			}
-		elif opt in ('--extra-spending'):
-			extraSpendingAmount, extraSpendingYears = arg.split(',')
-			bank['extraSpending']={
-				'amount': float(extraSpendingAmount),
-				'years': float(extraSpendingYears),
-				'real': False,
-			}
-		elif opt in ('--expense-ratio'):
-			bank['expenseRatio'] = float(arg)/100
-		elif opt in ('--skip-dividends'):
-			skipDividends = True
-	if len(args) < 3:
-		usage()
-		return
+def getExtraSpending(arg):
+	extraSpendingAmount, extraSpendingYears = arg.split(',')
+	return {
+		'amount': float(extraSpendingAmount),
+		'years': float(extraSpendingYears),
+		'real': False,
+	}
+
+def main():
+	parser = argparse.ArgumentParser(description = 'retirement plan backtester')
+	parser.set_defaults(func=lambda args: parser.print_help())
 	
-	bank['startSpending'] = float(args[1])
-	bank['portfolio'] = {
-		'taxable': {
-			'balance': float(args[2]),
-			'costBasis': float(args[2]),
-		}
+	parser.add_argument('--verbose', '-v', action='store_true',
+    	help='prints information about success of each scenario tested')
+	
+	parser.add_argument('--debug', type=int, metavar='YEAR',
+    	help='debug a single year')
+	
+	parser.add_argument('--monthly', action='store_true',
+		help='use "monthly" as the unit of time.  default:  yearly')
+	
+	parser.add_argument('--equity-percent', type=float, default=100,
+		help='change the equity percentage.  default:  100')
+	
+	parser.add_argument('--tent', type=getTent,
+		help='use a bond tent.  format:  PERCENT_START,YEARS')
+	
+	parser.add_argument('--extra-spending', type=getExtraSpending,
+		help='add extra spending.  format:  DOLLARS,YEARS (in thousands of dollars)')
+	
+	parser.add_argument('--expense-ratio', type=float, default=.1,
+		help='set the expense ratio (percent per year).  default: .1')
+	
+	parser.add_argument('--skip-dividends', action='store_true',
+		help='skip inclusion of dividends.  assumes dividends are always zero.')
+	
+	parser.add_argument('goalYears', type=float,
+		help='number of years you want to be in retirement')
+	
+	parser.add_argument('start_annual_spending', type=float,
+		help='the money you want to spend per year, adjusted for inflation.  in thousands of dollars')
+	
+	parser.add_argument('portfolio_size', type=float,
+		help='the starting size of the portfolio.  in thousands of dollars')
+	
+	args = parser.parse_args()
+
+	global verbose
+	verbose = args.verbose
+	bank = {
+		'startSpending': args.start_annual_spending,
+		'portfolio': {
+			'taxable': {
+				'balance': args.portfolio_size,
+				'costBasis': args.portfolio_size,
+			}
+		},
+		'expenseRatio': args.expense_ratio/100,
+		'tent': args.tent,
+		'extraSpending': args.extra_spending,
+		'equityRatio': args.equity_percent/100,
 	}
-	bank = adjustDueToTime(bank, monthly)
 
-	run(bank, float(args[0]), monthly, skipDividends)
+	if args.debug is not None:
+		global debugYear
+		debugYear=int(args.debug)
+		print('balance / spending capitalGainsTax / equities bonds / equityReturn equityDividends bondDividends netExpense / newBalance costBasis')
+	
+	bank = adjustDueToTime(bank, args.monthly)
 
-def usage():
-	print('usage:  python3 simulate.py [--monthly] [--verbose] [--equity-percent=PERCENT] goalYears startAnnualSpending portfolioSize')
+	run(bank, float(args.goalYears), args.monthly, args.skip_dividends)
 
 def parse(data):
 	return float(data) if data != '' else None
@@ -294,6 +309,6 @@ def run(bank, goalYears, monthly, skipDividends):
 
 
 if __name__ == "__main__":
-	main(sys.argv[1:])
+	main()
 
 
