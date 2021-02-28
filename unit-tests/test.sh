@@ -30,9 +30,14 @@ echo 1960 debug
 ./simulate.py --equity-percent=75 --debug=1960 --verbose 30 .04 1 |diff -u unit-tests/1960-debug -
 
 echo 1990 debug
-echo 1123.59/339.97 = 3.305
+#s&p 500 price (from shiller.csv, so averaged?) on 1990-01 and 2010-01
+echo 1123.58/339.97 = 3.305
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --monthly --equity-percent=100 --debug=1990 --skip-dividends --expense-ratio=0 --verbose 20 0 1 >unit-tests/1990-debug
 ./simulate.py --monthly --equity-percent=100 --debug=1990 --skip-dividends --expense-ratio=0 --verbose 20 0 1 |diff -u unit-tests/1990-debug -
+
+echo 1930 debug
+[ "$regenerateOutputs" == 'yes' ] && ./simulate.py --equity-percent=75 --debug=1930 --verbose 30 .04 1 >unit-tests/1930-debug
+./simulate.py --equity-percent=75 --debug=1930 --verbose 30 .04 1 |diff -u unit-tests/1930-debug -
 
 echo monthly
 [ "$regenerateOutputs" == 'yes' ] && ./simulate.py --monthly --verbose 40 .04 1 >unit-tests/40-4-monthly
