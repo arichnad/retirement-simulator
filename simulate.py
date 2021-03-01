@@ -9,6 +9,23 @@ epsilon = 1e-6
 debugYear = None
 verbose = False
 
+MIN_DATA_START=1871
+MAX_DATA_END=2021
+
+DEFAULT_DATA_END=2016
+
+def checkDataStart(year):
+	year=int(year)
+	if year < MIN_DATA_START:
+		raise argparse.ArgumentTypeError("%d is before the start year of %d" % (year, MIN_DATA_START))
+	return year
+
+def checkDataEnd(year):
+	year=int(year)
+	if year > MAX_DATA_END:
+		raise argparse.ArgumentTypeError("%d is after the end year of %d" % (year, MAX_DATA_END))
+	return year
+
 def getTent(arg):
 	tentPercentStart, tentYears = arg.split(',')
 	return {
@@ -49,6 +66,12 @@ def main():
 	parser.add_argument('--expense-ratio', type=float, default=.1,
 		help='set the expense ratio (percent per year).  default: .1')
 	
+	parser.add_argument('--data-start', type=checkDataStart, default=MIN_DATA_START,
+		help='simulations start on or after this year.  do not pick anything before %d' % MIN_DATA_START)
+	
+	parser.add_argument('--data-end', type=checkDataEnd, default=DEFAULT_DATA_END,
+		help='simulations end on or before this year.  do not pick anything after %d' % MAX_DATA_END)
+	
 	parser.add_argument('--skip-dividends', action='store_true',
 		help='skip inclusion of dividends.  assumes dividends are always zero.')
 	
@@ -66,6 +89,8 @@ def main():
 	global verbose
 	verbose = args.verbose
 	bank = {
+		'dataStart': datetime(args.data_start, 1, 1),
+		'dataEnd': datetime(args.data_end, 1, 1),
 		'startSpending': args.start_annual_spending,
 		'portfolio': {
 			'taxable': {
@@ -129,7 +154,7 @@ def withdrawalStrategy(data, bank, spending):
 #	))
 	
 def getYears(bank):
-	return (bank['date'] - bank['startDate']).days / 365
+	return (bank['date'] - bank['start']).days / 365
 
 def getEquityRatio(bank):
 	tent=bank['tent']
@@ -205,15 +230,15 @@ def oneTimeUnit(data, bank):
 def oneSimulation(data, bank, goalYears):
 	good = True
 	
-	while good and bank['date'] < bank['endDate'] and getYears(bank) < goalYears:
+	while good and bank['date'] < bank['end'] and getYears(bank) < goalYears:
 		good = oneTimeUnit(data, bank)
 	
-	if bank['date'] >= bank['endDate']:
+	if bank['date'] >= bank['end']:
 		return None, None
 	
 	global verbose
 	if verbose:
-		print(bank['startDate'], 'good' if good else 'bad')
+		print(bank['start'], 'good' if good else 'bad')
 	return good, getBalance(bank)
 
 def adjustExtraSpending(extraSpending, timeRatio):
@@ -263,8 +288,6 @@ def run(bank, goalYears, monthly, skipDividends):
 		dataEntry['sp500Increase'] = data[nextDate]['sp500'] / dataEntry['sp500'] - 1
 		dataEntry['nextCpi'] = data[nextDate]['cpi']
 	
-	startDate=datetime(1871,1,1)
-	endDate=datetime(2016,1,1)
 	goodCount = 0
 	totalCount = 0
 	totalBalance = 0
@@ -272,20 +295,23 @@ def run(bank, goalYears, monthly, skipDividends):
 	def setupBank():
 		return {
 			**bank,
-			'date': startDate,
-			'startDate': startDate,
-			'endDate': endDate,
+			'start': start,
+			'end': end,
+			'date': start,
 			'portfolio': copy.deepcopy(bank['portfolio']),
-			'startCpi': data[startDate]['cpi'],
+			'startCpi': data[start]['cpi'],
 		}
 
+	start = bank['dataStart']
+	end = bank['dataEnd']
+	
 	global debugYear
 	if debugYear is not None:
-		startDate = datetime(debugYear,1,1)
+		start = datetime(debugYear,1,1)
 		oneSimulation(data, setupBank(), goalYears)
 		return
 	
-	while startDate < endDate:
+	while start < end:
 		good, balance = oneSimulation(data, setupBank(), goalYears)
 
 		if good is None: break
@@ -295,7 +321,7 @@ def run(bank, goalYears, monthly, skipDividends):
 		totalCount += 1
 		totalBalance += balance
 		
-		startDate = data[startDate]['nextDate']
+		start = data[start]['nextDate']
 	
 	print('equity %-3d%%, bond %-3d%%, %s%.0f years: success %.1f%% of the simulations (average ending balance %.3f)' % (
 		round(bank['equityRatio']*100),

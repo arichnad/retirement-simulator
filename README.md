@@ -65,7 +65,7 @@ data
 
 `(echo 'date,s&p500,dividend,earnings,cpi,bondInterest'; cat shiller-raw.tsv |egrep '^[0-9]' |cut -f1-5,7 |sed -e 's/\./-/' -e 's/\t/,/g' -e 's/-1,/-10,/g') >shiller.csv`
 
-* output data was compared to firecalc.com
+* output data was compared to firecalc.  cFIREsim and cFIREsim-open do not seem to get their data directly from shiller:  I am not sure where their data comes from.
 
 dev notes
 =========
