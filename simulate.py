@@ -230,7 +230,7 @@ def oneTimeUnit(data, bank):
 def oneSimulation(data, bank, goalYears):
 	good = True
 	
-	while good and bank['date'] < bank['end'] and getYears(bank) < goalYears:
+	while bank['date'] < bank['end'] and getYears(bank) < goalYears:
 		good = oneTimeUnit(data, bank)
 	
 	if bank['date'] >= bank['end']:
@@ -239,7 +239,9 @@ def oneSimulation(data, bank, goalYears):
 	global verbose
 	if verbose:
 		print(bank['start'], 'good' if good else 'bad')
-	return good, getBalance(bank)
+
+	balanceAdjusted = getBalance(bank) / data[bank['date']]['cpi'] * bank['startCpi']
+	return good, balanceAdjusted
 
 def adjustExtraSpending(extraSpending, timeRatio):
 	if extraSpending is None:
